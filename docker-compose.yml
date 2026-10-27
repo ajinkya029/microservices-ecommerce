@@ -1,0 +1,61 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  auth-service:
+    build: ./auth-service
+    environment:
+      PORT: 4001
+      MONGO_URL: mongodb://mongo:27017
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+    depends_on:
+      - mongo
+    ports:
+      - "4001:4001"
+
+  product-service:
+    build: ./product-service
+    environment:
+      PORT: 4002
+      MONGO_URL: mongodb://mongo:27017
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+    depends_on:
+      - mongo
+    ports:
+      - "4002:4002"
+
+  order-service:
+    build: ./order-service
+    environment:
+      PORT: 4003
+      MONGO_URL: mongodb://mongo:27017
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      PRODUCT_URL: http://product-service:4002
+    depends_on:
+      - mongo
+      - product-service
+    ports:
+      - "4003:4003"
+
+  api-gateway:
+    build: ./api-gateway
+    environment:
+      PORT: 8080
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      AUTH_URL: http://auth-service:4001
+      PRODUCT_URL: http://product-service:4002
+      ORDER_URL: http://order-service:4003
+    depends_on:
+      - auth-service
+      - product-service
+      - order-service
+    ports:
+      - "8080:8080"
+
+volumes:
+  mongo_data:
